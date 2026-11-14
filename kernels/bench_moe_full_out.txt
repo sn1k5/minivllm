@@ -1,0 +1,84 @@
+USDT:2026-11-14 16:48:44 143971:143971 SyncActivityProfilerHandler.cpp:39] profiler_start
+USDT:2026-11-14 16:48:44 143971:143971 SyncActivityProfilerHandler.cpp:46] profiler_stop
+USDT:2026-11-14 16:48:44 143971:143971 SyncActivityProfilerHandler.cpp:39] profiler_start
+USDT:2026-11-14 16:48:45 143971:143971 SyncActivityProfilerHandler.cpp:46] profiler_stop
+=== 正确性 (T=64) ===
+[PASS] v1_cuda max_abs_err=3.36e-04
+[PASS] v2_cuda max_abs_err=3.36e-04
+[PASS] v2_triton max_abs_err=3.43e-04
+[PASS] v0_torch max_abs_err=3.88e-04
+[PASS] vllm_fused max_abs_err=2.75e-04
+
+=== 延迟扫描 us (vllm用默认config) ===
+         T |   v0_torch |    v1_cuda |    v2_cuda |  v2_triton |       vllm |      v1/v0 |    vllm/v1 |  TFLOPS_v1 | TFLOPS_vllm
+         1 |     6657.8 |      778.4 |      990.2 |     7707.5 |      333.4 |       8.6x |      2.33x |        0.1 |        0.2
+         2 |     8865.9 |     1211.9 |     1715.6 |     9239.1 |      313.3 |       7.3x |      3.87x |        0.1 |        0.5
+         4 |    12435.8 |     1806.9 |     2436.6 |    11528.6 |      372.7 |       6.9x |      4.85x |        0.2 |        0.8
+         8 |    19670.3 |     3171.8 |     4472.6 |    16158.3 |      649.3 |       6.2x |      4.88x |        0.2 |        0.9
+        16 |    26550.0 |     4281.0 |     6198.7 |    20786.5 |      922.3 |       6.2x |      4.64x |        0.3 |        1.3
+        32 |    34885.9 |     5964.9 |     8882.5 |    25312.7 |     1277.2 |       5.8x |      4.67x |        0.4 |        1.9
+        64 |    38569.0 |     6932.5 |    10117.9 |    28949.1 |     1466.1 |       5.6x |      4.73x |        0.7 |        3.3
+       128 |    40224.4 |     7225.2 |    10431.8 |    28803.5 |     1499.0 |       5.6x |      4.82x |        1.3 |        6.4
+       256 |    39491.2 |     9528.9 |    10972.9 |    29085.5 |     1599.6 |       4.1x |      5.96x |        2.0 |       12.1
+       512 |    39416.8 |    16224.6 |    16128.2 |    28805.6 |     1659.9 |       2.4x |      9.77x |        2.4 |       23.3
+      1024 |    40088.7 |    29118.9 |    28295.1 |    28772.0 |     2458.5 |       1.4x |     11.84x |        2.7 |       31.4
+      2048 |    40297.8 |    53397.2 |    50481.7 |    29091.9 |     3707.9 |       0.8x |     14.40x |        2.9 |       41.7
+      4096 |    40473.5 |   104174.3 |    95755.5 |    34071.0 |     6724.3 |       0.4x |     15.49x |        3.0 |       46.0
+
+=== vllm config搜索 ===
+T=1     cfg0 BSM= 16 BSN= 32 BSK=64 ->    287.9us
+T=1     cfg1 BSM= 16 BSN= 64 BSK=64 ->    328.2us
+T=1     cfg2 BSM= 16 BSN=128 BSK=32 ->    324.8us
+T=1     cfg3 BSM= 32 BSN= 64 BSK=32 ->    356.7us
+T=1     cfg4 BSM= 64 BSN= 64 BSK=32 ->    307.5us
+T=8     cfg0 BSM= 16 BSN= 32 BSK=64 ->    612.8us
+T=8     cfg1 BSM= 16 BSN= 64 BSK=64 ->    623.2us
+T=8     cfg2 BSM= 16 BSN=128 BSK=32 ->    686.7us
+T=8     cfg3 BSM= 32 BSN= 64 BSK=32 ->    659.9us
+T=8     cfg4 BSM= 64 BSN= 64 BSK=32 ->    647.5us
+T=64    cfg0 BSM= 16 BSN= 32 BSK=64 ->   1469.1us
+T=64    cfg1 BSM= 16 BSN= 64 BSK=64 ->   1467.8us
+T=64    cfg2 BSM= 16 BSN=128 BSK=32 ->   1566.6us
+T=64    cfg3 BSM= 32 BSN= 64 BSK=32 ->   1494.2us
+T=64    cfg4 BSM= 64 BSN= 64 BSK=32 ->   1524.4us
+T=512   cfg0 BSM= 64 BSN= 64 BSK=32 ->   1751.7us
+T=512   cfg1 BSM= 64 BSN=128 BSK=32 ->   1711.6us
+T=512   cfg2 BSM=128 BSN=128 BSK=32 ->   2551.1us
+T=512   cfg3 BSM= 64 BSN=128 BSK=64 ->   1668.1us
+T=512   cfg4 BSM=128 BSN= 64 BSK=64 ->   2504.8us
+T=4096  cfg0 BSM= 64 BSN= 64 BSK=32 ->   6765.0us
+T=4096  cfg1 BSM= 64 BSN=128 BSK=32 ->   6626.0us
+T=4096  cfg2 BSM=128 BSN=128 BSK=32 ->   6929.3us
+T=4096  cfg3 BSM= 64 BSN=128 BSK=64 ->   6777.7us
+T=4096  cfg4 BSM=128 BSN= 64 BSK=64 ->   7255.7us
+best T=1: 287.9us {'BLOCK_SIZE_M': 16, 'BLOCK_SIZE_N': 32, 'BLOCK_SIZE_K': 64, 'GROUP_SIZE_M': 1}
+best T=8: 612.8us {'BLOCK_SIZE_M': 16, 'BLOCK_SIZE_N': 32, 'BLOCK_SIZE_K': 64, 'GROUP_SIZE_M': 1}
+best T=64: 1467.8us {'BLOCK_SIZE_M': 16, 'BLOCK_SIZE_N': 64, 'BLOCK_SIZE_K': 64, 'GROUP_SIZE_M': 1, 'num_warps': 4}
+best T=512: 1668.1us {'BLOCK_SIZE_M': 64, 'BLOCK_SIZE_N': 128, 'BLOCK_SIZE_K': 64, 'GROUP_SIZE_M': 8, 'num_warps': 4, 'num_stages': 4}
+best T=4096: 6626.0us {'BLOCK_SIZE_M': 64, 'BLOCK_SIZE_N': 128, 'BLOCK_SIZE_K': 32, 'GROUP_SIZE_M': 8, 'num_warps': 4, 'num_stages': 4}
+
+=== 激活峰值显存 MB ===
+T=64    v0_torch      0.8 | v1_cuda     12.5 | vllm      4.5
+T=1024  v0_torch     13.4 | v1_cuda     53.1 | vllm     72.1
+
+=== v1_cuda 分阶段 (20次平均, us) ===
+--- T=1 ---
+  moe_gemm                                    626.7us (90.9%)
+  route_topk                                   27.4us ( 4.0%)
+  plan_offsets                                 20.6us ( 3.0%)
+  silu_mul                                      6.3us ( 0.9%)
+  cast_out                                      1.6us ( 0.2%)
+  scatter_tokens                                1.3us ( 0.2%)
+  count_expert                                  1.1us ( 0.2%)
+  void at::native::vectorized_elementwise_      1.0us ( 0.1%)
+  总计                                          689.2us
+--- T=512 ---
+  moe_gemm                                  16031.7us (99.3%)
+  silu_mul                                     33.1us ( 0.2%)
+  route_topk                                   32.1us ( 0.2%)
+  plan_offsets                                 25.9us ( 0.2%)
+  cast_out                                      7.2us ( 0.0%)
+  void at::native::vectorized_elementwise_      3.9us ( 0.0%)
+  scatter_tokens                                2.1us ( 0.0%)
+  count_expert                                  1.7us ( 0.0%)
+  总计                                        16141.4us
