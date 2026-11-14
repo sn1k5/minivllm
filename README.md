@@ -102,7 +102,7 @@ python -m pytest tests/gpu -q           # GPU（需模型权重）
 
 ## 许可
 
-本项目为原创学习项目，版权所有 (c) 2026 sni5s。允许个人学习、研究与教学用途的阅读与运行；
+本项目为原创学习项目，版权所有 (c) 2026 snik5。允许个人学习、研究与教学用途的阅读与运行；
 禁止以任何形式转售或用于商业用途。完整条款见 [LICENSE](LICENSE)。
 
 > 本项目为独立实现，与 [vLLM 官方项目](https://github.com/vllm-project/vllm) 无隶属或背书关系。
