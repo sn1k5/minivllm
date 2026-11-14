@@ -25,6 +25,7 @@ if str(ROOT) not in sys.path:
 from src import Engine, EngineConfig, SamplingParams  # noqa: E402
 
 RESULTS_DIR = ROOT / "bench" / "results"
+ATTN_TAG = "auto"  # 结果键标签（--attn/--cg 设置）
 
 
 def make_engine(model: str, **kw) -> Engine:
@@ -38,7 +39,10 @@ def make_engine(model: str, **kw) -> Engine:
         prefix_backend="hash",
         gpu_memory_utilization=0.80,
         mix_prefill_decode=True,
+        attention_backend=ATTN_TAG.split("+")[0],
     )
+    if "+cg" in ATTN_TAG:
+        cfg["enforce_eager"] = False
     cfg.update(kw)
     return Engine(EngineConfig(**cfg))
 
@@ -362,17 +366,33 @@ SUITES = {
 
 
 def main() -> None:
+    global ATTN_TAG
     ap = argparse.ArgumentParser(description="minivllm 真实基准")
     ap.add_argument("--model", default="Qwen3-0.6B")
     ap.add_argument("--suite", default="all",
                     help="all / " + " ".join(SUITES))
+    ap.add_argument("--attn", default=None, choices=("auto", "fa2", "torch"),
+                    help="注意力后端（默认 auto=装了 fa2 用 fa2）")
+    ap.add_argument("--cg", action="store_true", help="开启 Decode CUDA Graph")
     args = ap.parse_args()
     model = str(__import__("model_hub").resolve_model_path(args.model))
     names = list(SUITES) if args.suite == "all" else args.suite.split(",")
     RESULTS_DIR.mkdir(exist_ok=True)
-    out: dict = {"model": model, "gpu": _gpu_name(), "eager": True}
+    out: dict = {"model": model, "gpu": _gpu_name(), "eager": not args.cg}
+    if args.attn is not None:
+        out["attn_backend"] = args.attn
+    if args.cg:
+        out["cuda_graph"] = True
+    # 结果键加后端/CG 标签，避免合并时互相覆盖
+    ATTN_TAG = args.attn or "auto"
+    if args.cg:
+        ATTN_TAG += "+cg"
     for name in names:
         SUITES[name](model, out)
+    # 结果键加后端/CG 标签，避免合并时互相覆盖
+    for name in names:
+        if name in out:
+            out[f"{name}@{ATTN_TAG}"] = out.pop(name)
     path = RESULTS_DIR / f"real_{out['gpu'].replace(' ', '_')}.json"
     merged = {}
     if path.exists():  # 增量合并，保留其他套件的历史结果
