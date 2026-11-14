@@ -1,0 +1,32 @@
+# --- 环境与缓存 ---
+**/.venv
+**/venv/
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/.coverage
+**/*.egg-info/
+**/.DS_Store
+**/.idea/
+**/.vscode/
+
+# --- 基准与剖析产物（可由脚本再生成）---
+**/bench/results/
+**/bench/out/
+**/traces/
+**/*.nsys-rep
+**/*.pt.trace.json
+
+# --- 日志与临时文件 ---
+**/*.log
+**/tmp/
+**/.cache/
+
+# --- 模型权重不入库 ---
+**/huggingface/
+**/*.safetensors
+**/*.bin
+**/*.pt
+**/*.pth

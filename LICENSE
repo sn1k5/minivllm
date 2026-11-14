@@ -1,0 +1,87 @@
+版权所有 (c) 2026 sni5s。保留所有权利。
+Copyright (c) 2026 sni5s. All rights reserved.
+
+================================================================================
+中文
+================================================================================
+
+本项目为作者原创的学习与工程实践项目，受著作权法及相关法律保护。
+
+一、允许的行为
+
+  1. 为个人学习、研究或教学目的，阅读、克隆、下载本项目，并在本地运行；
+  2. 在保留本声明完整内容的前提下，非商业性地引用本项目中的少量代码片段，
+     并明确注明来源与本项目名称。
+
+二、禁止的行为
+
+  1. 以任何形式转售本项目或其任何修改版本、衍生版本；
+  2. 将本项目或其修改版本用于商业产品或商业服务，包括但不限于付费课程、
+     付费社群、商业培训与商业项目交付；
+  3. 移除、遮盖或修改本声明及作者署名；
+  4. 将本项目整体或实质性部分重新发布、镜像或以其他方式提供给第三方用于
+     上述被禁止的目的。
+
+三、商业许可
+
+  任何超出"第一条允许的行为"范围的使用，须事先取得著作权人的书面许可。
+
+四、免责声明
+
+  本项目按"现状"提供，不附带任何明示或默示的担保。因使用本项目所产生的
+  任何直接或间接损失，作者不承担责任。
+
+五、第三方归属
+
+  本项目为独立实现，与 vLLM 官方项目（https://github.com/vllm-project/vllm）
+  无任何隶属、赞助或背书关系。
+
+  本项目依赖的第三方库（包括但不限于 PyTorch、Transformers、safetensors、
+  PyYAML、Triton、FlashAttention、FastAPI 以及作为性能基准对照的 vLLM）
+  遵循其各自项目的许可证。本声明仅覆盖作者原创的代码与文档。
+
+================================================================================
+English
+================================================================================
+
+This project is original work created by the author and is protected by
+copyright law.
+
+PERMITTED
+
+  1. Reading, cloning, downloading and locally running the Project for personal
+     study, research, or teaching purposes.
+  2. Non-commercial quotation of small portions of the source code, provided
+     that this notice is retained in full and the Project is clearly credited.
+
+PROHIBITED
+
+  1. Reselling the Project, or any modified or derivative version of it, in any
+     form.
+  2. Using the Project, or any modified version of it, in a commercial product
+     or commercial service, including but not limited to paid courses, paid
+     communities, commercial training, and commercial delivery.
+  3. Removing, obscuring, or modifying this notice or the author's attribution.
+  4. Republishing, mirroring, or otherwise making the Project available to
+     third parties for any of the purposes prohibited above.
+
+COMMERCIAL LICENSING
+
+  Any use beyond the permitted scope above requires prior written permission
+  from the copyright holder.
+
+DISCLAIMER
+
+  The Project is provided "AS IS", without warranty of any kind, express or
+  implied. The author shall not be liable for any direct or indirect loss
+  arising from the use of the Project.
+
+THIRD-PARTY ATTRIBUTION
+
+  The Project is an independent implementation and is not affiliated with,
+  sponsored by, or endorsed by the official vLLM project
+  (https://github.com/vllm-project/vllm).
+
+  The Project depends on third-party libraries (including but not limited to
+  PyTorch, Transformers, safetensors, PyYAML, Triton, FlashAttention, FastAPI,
+  and vLLM as a performance baseline), each governed by its own license.
