@@ -126,6 +126,7 @@ class Batch:
         _h2d(self.positions, self._dec_pos, bs)
         _h2d(self.slot_mapping, self._dec_slot, bs)
         _h2d(self.cache_seqlens, self._dec_csl, bs)
+        self.max_cache_len = int(csl_np[:bs].max()) if bs else 0
 
         sid = tuple(s.seq_id for s in seqs)
         self._sync_block_tables(seqs, sid)

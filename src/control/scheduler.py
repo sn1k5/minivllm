@@ -59,6 +59,11 @@ class Scheduler:
         self.spec_proposer = None
         self.spec_k = 0
         self.spec_drafts: dict[int, list[int]] = {}
+        # 观测：抢占计数（A1/A4 效果对比用）
+        self.n_preempts = 0
+        # 观测：投机提案/接受 token 数（D1 接受率用）
+        self.n_spec_proposed = 0
+        self.n_spec_accepted = 0
 
     # ------------------------------------------------------------------ #
     # 队列基础
@@ -80,6 +85,21 @@ class Scheduler:
         """启用投机解码（EngineCore 在 spec_algorithm != none 时调用）。"""
         self.spec_proposer = proposer
         self.spec_k = max(0, num_draft_tokens)
+
+    def stats(self) -> dict:
+        """调度器统计快照（bench 与指标用）。"""
+        out = {
+            "num_waiting": len(self.waiting),
+            "num_running": len(self.running),
+            "num_swapped": len(self.swapped),
+            "num_restoring": len(self.restoring),
+            "preemptions": self.n_preempts,
+            "spec_proposed": self.n_spec_proposed,
+            "spec_accepted": self.n_spec_accepted,
+        }
+        if self.kv.offloader is not None:
+            out.update(self.kv.offloader.stats())
+        return out
 
     # ------------------------------------------------------------------ #
     # 主调度入口
@@ -122,7 +142,9 @@ class Scheduler:
     def _try_swap_in(self) -> None:
         """A1：页够就发起换入（异步）；换入失败转重算。"""
         for seq in list(self.swapped):
-            if self.kv.num_free < seq.num_blocks:
+            # cached 里的已发布前缀可被驱逐腾位，swap_in 内部会做驱逐
+            avail = self.kv.num_free + len(self.kv.blocks.cached_ids)
+            if avail < seq.num_blocks:
                 continue
             job = self.kv.swap_in(seq)
             self.swapped.remove(seq)
@@ -140,6 +162,7 @@ class Scheduler:
     def preempt(self, seq: Sequence) -> None:
         if seq.status == SequenceStatus.FINISHED:
             return
+        self.n_preempts += 1
         if self._preempt_mode(seq) == "swap" and seq.block_table and self.kv.swap_out(seq):
             seq.status = SequenceStatus.SWAPPED
             self.swapped.append(seq)
@@ -223,6 +246,7 @@ class Scheduler:
             if drafts:
                 self.kv.may_append_for(seq, seq.num_tokens + len(drafts))
                 self.spec_drafts[seq.seq_id] = drafts
+        self.n_spec_proposed += sum(len(v) for v in self.spec_drafts.values())
         return True
 
     # ------------------------------------------------------------------ #
@@ -410,6 +434,7 @@ class Scheduler:
                     accepted += 1
                 else:
                     break
+            self.n_spec_accepted += accepted
             new_ids = drafts[:accepted] + [verify[accepted]]
 
             seq.num_cached_tokens += 1 + accepted

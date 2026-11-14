@@ -141,11 +141,16 @@ class KVOffloader:
         return job
 
     def poll_restore(self, seq_id: int) -> bool:
-        """拉回是否就绪。就绪后移除任务并计数。"""
+        """拉回是否就绪。就绪后移除任务并计数；超时则同步等待（防活锁）。"""
         job = self.restoring.get(seq_id)
         if job is None:
             return True
-        if self.backend.event_ready(job.event):
+        ready = self.backend.event_ready(job.event)
+        if not ready and time.perf_counter() - job.started_at > 0.5:
+            # 极端情况下事件迟迟不触发：阻塞等一次，保证调度推进。
+            self.backend.event_synchronize(job.event)
+            ready = True
+        if ready:
             del self.restoring[seq_id]
             self.n_restored += 1
             return True

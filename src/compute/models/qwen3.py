@@ -135,6 +135,19 @@ class Qwen3Attention(nn.Module):
         return q, k, v
 
 
+def _rope_theta(config) -> float:
+    """兼容新旧 transformers：rope_parameters / rope_scaling / 顶层 rope_theta。"""
+    rp = getattr(config, "rope_parameters", None)
+    if rp is not None:
+        theta = rp["rope_theta"] if isinstance(rp, dict) else getattr(rp, "rope_theta", None)
+        if theta is not None:
+            return float(theta)
+    rs = getattr(config, "rope_scaling", None)
+    if isinstance(rs, dict) and "rope_theta" in rs:
+        return float(rs["rope_theta"])
+    return float(getattr(config, "rope_theta", 1000000.0))
+
+
 class Qwen3DecoderLayer(nn.Module):
     def __init__(self, config: Qwen3Config, layer_id: int = 0):
         super().__init__()
@@ -143,7 +156,7 @@ class Qwen3DecoderLayer(nn.Module):
             num_heads=config.num_attention_heads,
             num_kv_heads=config.num_key_value_heads,
             max_position=config.max_position_embeddings,
-            rope_theta=float(config.rope_parameters["rope_theta"]),
+            rope_theta=_rope_theta(config),
             rms_norm_eps=config.rms_norm_eps,
             qkv_bias=getattr(config, "attention_bias", False),
             head_dim=getattr(config, "head_dim", None),

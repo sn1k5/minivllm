@@ -175,3 +175,86 @@ def gather_fp8_kv(
         D=d, BS=block_size,
     )
     return k_out, v_out
+
+
+@triton.jit
+def _gather_kv_padded_kernel(
+    k_cache_ptr,
+    v_cache_ptr,
+    scale_ptr,
+    bt_ptr,
+    bt_stride,
+    lens_ptr,
+    k_out_ptr,
+    v_out_ptr,
+    max_kv,
+    D: tl.constexpr,
+    BS: tl.constexpr,
+    HAS_SCALE: tl.constexpr,
+):
+    """按页表把 KV 拉直成 padded [bs, max_kv, h, d]；fp8 时反量化。"""
+    sid = tl.program_id(0)
+    blk = tl.program_id(1)
+    cache_len = tl.load(lens_ptr + sid)
+    if blk * BS >= cache_len:
+        return
+    bid = tl.load(bt_ptr + sid * bt_stride + blk)
+    if bid < 0:
+        return
+    n_tok = tl.minimum(BS, cache_len - blk * BS)
+    offs_t = tl.arange(0, BS)
+    offs_d = tl.arange(0, D)
+    m = offs_t[:, None] < n_tok
+    slot0 = bid * BS
+    base = slot0 * D + offs_t[:, None] * D + offs_d[None, :]
+    k8 = tl.load(k_cache_ptr + base, mask=m, other=0.0)
+    v8 = tl.load(v_cache_ptr + base, mask=m, other=0.0)
+    out_base = sid * max_kv * D + (blk * BS + offs_t)[:, None] * D + offs_d[None, :]
+    if HAS_SCALE:
+        s = tl.load(scale_ptr + slot0 + offs_t, mask=offs_t < n_tok, other=1.0)
+        sf = s.to(tl.float32)[:, None]
+        k8 = k8.to(tl.float32) * sf
+        v8 = v8.to(tl.float32) * sf
+    tl.store(
+        k_out_ptr + out_base,
+        k8.to(k_out_ptr.dtype.element_ty),
+        mask=m,
+    )
+    tl.store(
+        v_out_ptr + out_base,
+        v8.to(v_out_ptr.dtype.element_ty),
+        mask=m,
+    )
+
+
+def gather_kv_padded(
+    k_cache: torch.Tensor,
+    v_cache: torch.Tensor,
+    block_tables: torch.Tensor,
+    seq_lens: torch.Tensor,
+    max_kv: int,
+    dtype: torch.dtype,
+    block_size: int,
+    scale: torch.Tensor | None = None,
+    out: tuple[torch.Tensor, torch.Tensor] | None = None,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """页池 → padded KV [bs, max_kv, h, d]（padding 区未写，需 mask）。
+
+    传 out 时写入给定缓冲（尺寸按 256 对齐，避免反复分配）。
+    """
+    n_seq = block_tables.shape[0]
+    h, d = k_cache.shape[2], k_cache.shape[3]
+    if out is None:
+        k_out = torch.zeros((n_seq, max_kv, h, d), dtype=dtype, device=k_cache.device)
+        v_out = torch.zeros_like(k_out)
+    else:
+        k_out, v_out = out
+    grid = (n_seq, block_tables.shape[1])
+    _gather_kv_padded_kernel[grid](
+        k_cache, v_cache,
+        scale if scale is not None else k_cache,  # 无 scale 时占位
+        block_tables, block_tables.stride(0),
+        seq_lens, k_out, v_out,
+        k_out.shape[1], D=h * d, BS=block_size, HAS_SCALE=scale is not None,
+    )
+    return k_out, v_out

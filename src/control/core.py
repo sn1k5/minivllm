@@ -118,12 +118,47 @@ class EngineCore:
             # 这通常意味着 KV 池已满、无法为新请求或续写请求分配块。
             # 连续空闲超过阈值后主动报错，避免静默死循环。
             if not self.scheduler.is_finished():
+                # 有异步拉回/换入在途：属于正常等待，不计入空闲步数。
+                if self.scheduler.restoring or self.scheduler.swapped:
+                    return [], 0
                 self._idle_steps += 1
                 if self._idle_steps >= self._MAX_IDLE_STEPS:
+                    w = self.scheduler.waiting
+                    r = self.scheduler.running
+                    dbg = [
+                        f"waiting={len(w)} running={len(r)}"
+                        f" swapped={len(self.scheduler.swapped)}"
+                        f" restoring={len(self.scheduler.restoring)}"
+                        f" free_blocks={self.kv.num_free}"
+                        f" cached={len(self.kv.blocks.cached_ids)}"
+                    ]
+                    off = self.kv.offloader
+                    if off is not None:
+                        import time as _t
+
+                        dbg.append(f"  offloader: {off.stats()}")
+                        for sid, job in list(off.restoring.items())[:3]:
+                            ready = job.event.query() if job.event else None
+                            dbg.append(
+                                f"  restore seq{sid}: kind={job.kind}"
+                                f" n={job.n_blocks} ready={ready}"
+                                f" elapsed={_t.perf_counter() - job.started_at:.2f}s"
+                            )
+                    for s in list(w)[:4]:
+                        dbg.append(
+                            f"  wait seq{s.seq_id}: tokens={s.num_tokens}"
+                            f" need_blocks={s.num_blocks} bt={len(s.block_table)}"
+                            f" cached={s.num_cached_tokens}"
+                        )
+                    for s in list(r)[:4]:
+                        dbg.append(
+                            f"  run  seq{s.seq_id}: tokens={s.num_tokens}"
+                            f" bt={len(s.block_table)} cached={s.num_cached_tokens}"
+                        )
                     raise RuntimeError(
-                        "scheduler returned empty for too long while requests remain "
-                        f"(idle_steps={self._idle_steps}). Likely KV pool exhaustion "
-                        f"(free_blocks={self.kv.num_free})."
+                        "scheduler returned empty for too long while requests"
+                        f" remain (idle_steps={self._idle_steps}).\n"
+                        + "\n".join(dbg)
                     )
             return [], 0
 

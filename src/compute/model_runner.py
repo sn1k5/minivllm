@@ -15,7 +15,12 @@ from ..distributed import (
 from .batch import Batch
 from .cuda_graph import CUDAGraphRunner
 from .kv_pool import KVPool
-from .layers.attention import AttnInputs, AttnMetadata, attention_context
+from .layers.attention import (
+    AttnInputs,
+    AttnMetadata,
+    attention_context,
+    set_attention_backend,
+)
 from .sampler import Sampler
 
 
@@ -38,11 +43,26 @@ class ModelRunner:
         self.kv_cache = kv.kv_cache
         self.dtype = kv.dtype
         self.hidden_size = config.hf_config.hidden_size
+        # 注意力后端：auto = 装 flash_attn 用 fa2，否则 torch SDPA 兜底
+        backend = getattr(config, "attention_backend", "auto")
+        if backend == "auto":
+            try:
+                import flash_attn  # noqa: F401
+
+                backend = "fa2"
+            except ImportError:
+                backend = "torch"
+        if backend == "torch" and not config.enforce_eager:
+            print("[attention] torch backend runs eager; CUDA Graph disabled")
+            config.enforce_eager = True
+        set_attention_backend(backend)
+        print(f"[attention] backend = {backend}")
         self._meta = AttnMetadata(kv_cache=self.kv_cache, kv_scale=self.kv.kv_scale)
         # C2 FP8：decode 走 varlen 需要 max_k 上界（CG 重放时也要够大）
         self.fp8_max_k = (
             config.context_len if self.kv.kv_scale is not None else 0
         )
+        self.kv_max_k = 0  # torch 后端 decode 的真实 max cache len（每步更新）
 
         pp = get_pp_group()
         tp = get_tp_group()
@@ -150,7 +170,7 @@ class ModelRunner:
             is_prefill=False,
             cache_seqlens=self.batch.cache_seqlens[:bs],
             block_tables=self.batch.block_tables[:bs],
-            max_seqlen_k=self.fp8_max_k,
+            max_seqlen_k=self.kv_max_k,
         )
 
     def _decode_body(self, bs: int):
@@ -187,6 +207,7 @@ class ModelRunner:
             else None
         )
         self.batch.build_decode(seqs, pad_to=pad_to)
+        self.kv_max_k = self.batch.max_cache_len
 
         if self.cuda_graph_runner is not None and bs <= self.max_bs:
             if not self.is_first_pp:

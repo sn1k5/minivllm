@@ -1,4 +1,4 @@
-"""torch.compile 自定义算子注册。
+"""flashinfer 自定义算子注册：rmsnorm / silu / rope。
 
 该模块将 flashinfer 的底层 kernel 包装为 torch.library 自定义算子，
 避免编译器尝试 trace 进这些 kernel 内部。
@@ -7,6 +7,12 @@
     - 每个算子通过 torch.library.custom_op 注册，编译时作为黑盒处理。
     - 每个算子注册 fake 实现，供 torch.compile 进行形状和 dtype 推导。
     - 底层 kernel 由 flashinfer 提供，本模块仅做形状适配与接口封装。
+    - 懒加载：模块可导入（CPU 单测），GPU 运行时才需要 flashinfer。
+    - 实测注记：flashinfer 0.6.13 的 paged attention wrapper 在本机
+      (cu130 + sm86) 对 num_kv_heads > 1 输出错误（多后端一致复现），
+      故注意力后端不用 flashinfer（见 layers/attention.py）；
+      rmsnorm / silu / rope 逐头无 GQA 问题，数值验证正确且为融合核，
+      比 torch 原生多次 launch 更快。
 """
 
 from __future__ import annotations

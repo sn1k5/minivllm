@@ -83,6 +83,9 @@ class EngineConfig:
     weight_quant: Literal["none", "w8a16"] = "none"
     kv_cache_dtype: Literal["auto", "fp8"] = "auto"
 
+    # ---- 注意力后端 ----
+    attention_backend: Literal["auto", "fa2", "torch"] = "auto"
+
     hf_config: PretrainedConfig = field(init=False)
     is_moe: bool = field(init=False, default=False)
 
